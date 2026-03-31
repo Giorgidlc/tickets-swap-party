@@ -1,18 +1,20 @@
 import React from 'react'
+import { SessionProvider } from 'next-auth/react'
+import '../globals.css'
 import './styles.css'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  title: 'Swap Party 🔄 Intercambio de Ropa',
+  description: 'Trae la ropa que ya no usas y llévate nuevos tesoros',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const { children } = props
 
   return (
-    <html lang="en">
+    <html lang="es">
       <body>
-        <main>{children}</main>
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   )

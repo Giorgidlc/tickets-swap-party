@@ -1,7 +1,8 @@
 import { headers as getHeaders } from 'next/headers.js'
 import Image from 'next/image'
 import { getPayload } from 'payload'
-import React from 'react'
+import RegistrationForm from '@/components/RegistrationForm'
+import { EVENT } from '@/lib/constants'
 import { fileURLToPath } from 'url'
 
 import config from '@/payload.config'
@@ -16,44 +17,55 @@ export default async function HomePage() {
   const fileURL = `vscode://file/${fileURLToPath(import.meta.url)}`
 
   return (
-    <div className="home">
-      <div className="content">
-        <picture>
-          <source srcSet="https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg" />
-          <Image
-            alt="Payload Logo"
-            height={65}
-            src="https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg"
-            width={65}
-          />
-        </picture>
-        {!user && <h1>Welcome to your new project.</h1>}
-        {user && <h1>Welcome back, {user.email}</h1>}
-        <div className="links">
-          <a
-            className="admin"
-            href={payloadConfig.routes.admin}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Go to admin panel
-          </a>
-          <a
-            className="docs"
-            href="https://payloadcms.com/docs"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Documentation
-          </a>
+    <main className="page-container">
+      <div className="event-card">
+        {/* Header */}
+        <div className="event-header">
+          {/* Aquí va tu logo */}
+          {/* <img src="/logo.png" alt="Swap Party" className="logo" /> */}
+          <h1>🔄 {EVENT.name}</h1>
+          <p className="tagline">{EVENT.tagline}</p>
+        </div>
+
+        {/* Info del evento */}
+        <div className="event-info">
+          <div className="info-item">
+            <span className="icon">📅</span>
+            <div>
+              <strong>{EVENT.date}</strong>
+              <span>{EVENT.time}</span>
+            </div>
+          </div>
+          <div className="info-item">
+            <span className="icon">📍</span>
+            <div>
+              <strong>{EVENT.location}</strong>
+              <span>{EVENT.address}</span>
+            </div>
+          </div>
+          <div className="info-item drink">
+            <span className="icon">🍹</span>
+            <span>1 consumición incluida</span>
+          </div>
+        </div>
+
+        {/* Normas */}
+        <div className="rules-section">
+          <h3>📋 ¿Cómo funciona?</h3>
+          <ul>
+            {EVENT.rules.map((rule, i) => (
+              <li key={i}>{rule}</li>
+            ))}
+          </ul>
+          <p className="disclaimer">{EVENT.disclaimer}</p>
+        </div>
+
+        {/* Formulario */}
+        <div className="form-section">
+          <h2>🎟️ Consigue tu entrada gratuita</h2>
+          <RegistrationForm />
         </div>
       </div>
-      <div className="footer">
-        <p>Update this page by editing</p>
-        <a className="codeLink" href={fileURL}>
-          <code>app/(frontend)/page.tsx</code>
-        </a>
-      </div>
-    </div>
+    </main>
   )
 }
