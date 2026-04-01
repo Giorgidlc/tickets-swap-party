@@ -130,7 +130,7 @@ export default function RegistrationForm() {
       )}
 
       <div className="divider">
-        <span>o regístrate con tu email</span>
+        <span>Regístrate con tu correo electrónico</span>
       </div>
 
       {/* Formulario manual */}
@@ -151,7 +151,7 @@ export default function RegistrationForm() {
           ) : availability?.soldOut ? (
             'Apuntarme a la lista de espera'
           ) : (
-            '🎟️ Obtener mi entrada gratis'
+            'Obtener mi entrada gratis'
           )}
         </button>
       </form>

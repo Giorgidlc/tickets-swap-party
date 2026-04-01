@@ -14,33 +14,38 @@ export default async function HomePage() {
   const payload = await getPayload({ config: payloadConfig })
   const { user } = await payload.auth({ headers })
 
-  const fileURL = `vscode://file/${fileURLToPath(import.meta.url)}`
-
   return (
     <main className="page-container">
       <div className="event-card">
         {/* Header */}
         <div className="event-header">
-          {/* Aquí va tu logo */}
-          {/* <img src="/logo.png" alt="Swap Party" className="logo" /> */}
-          <h1>🔄 {EVENT.name}</h1>
+          <div className="logo-container">
+            <img src="/assets/logo.webp" alt="Swap Party" width="100" height="26" />
+          </div>
+          <h1>{EVENT.name}</h1>
           <p className="tagline">{EVENT.tagline}</p>
         </div>
 
         {/* Info del evento */}
         <div className="event-info">
-          <div className="info-item">
-            <span className="icon">📅</span>
-            <div>
-              <strong>{EVENT.date}</strong>
-              <span>{EVENT.time}</span>
+          <div className="info-container">
+            <div className="info-item">
+              <span className="icon">📅</span>
+              <div>
+                <p>
+                  <strong>{EVENT.date}</strong>
+                </p>
+                <p>{EVENT.time}</p>
+              </div>
             </div>
-          </div>
-          <div className="info-item">
-            <span className="icon">📍</span>
-            <div>
-              <strong>{EVENT.location}</strong>
-              <span>{EVENT.address}</span>
+            <div className="info-item">
+              <span className="icon">📍</span>
+              <div>
+                <p>
+                  <strong>{EVENT.location}</strong>
+                </p>
+                <p>{EVENT.address}</p>
+              </div>
             </div>
           </div>
           <div className="info-item drink">
@@ -62,9 +67,13 @@ export default async function HomePage() {
 
         {/* Formulario */}
         <div className="form-section">
-          <h2>🎟️ Consigue tu entrada gratuita</h2>
+          <h2>🎟️ Consigue tu entrada gratuita 🎟️</h2>
           <RegistrationForm />
         </div>
+      </div>
+
+      <div className="image-section">
+        <img src="/assets/image-swap.webp" alt="Swap Party" width="300" height="300" />
       </div>
     </main>
   )

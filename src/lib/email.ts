@@ -1,11 +1,29 @@
 import { Resend } from 'resend'
-import { generateQRBuffer } from './qr'
+import { generateQRDataURL } from './qr'
 import { EVENT } from './constants'
+import {
+  buildTicketEmailHTML,
+  buildTicketEmailText,
+  buildWaitlistEmailHTML,
+  buildWaitlistEmailText,
+  buildOrganizerEmailHTML,
+  buildOrganizerEmailText,
+  buildPromotedEmailHTML,
+  buildPromotedEmailText,
+} from './email-templates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const emailFrom = process.env.EMAIL_FROM || 'Swap Party <onboarding@resend.dev>'
+const organizerEmails = (process.env.ORGANIZER_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim())
+  .filter(Boolean)
 
-interface SendTicketEmailParams {
+// ─────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────
+interface TicketEmailParams {
   to: string
   ticketCode: string
   qrToken: string
@@ -13,187 +31,209 @@ interface SendTicketEmailParams {
   name?: string
 }
 
+interface WaitlistEmailParams {
+  to: string
+  position: number
+  name?: string
+}
+
+interface OrganizerNotifyParams {
+  attendeeEmail: string
+  attendeeName?: string
+  ticketCode: string
+  ticketNumber: number
+  totalTickets: number
+}
+
+// ─────────────────────────────────────────────
+// ENVIAR: Email de confirmación con QR al asistente
+// ─────────────────────────────────────────────
 export async function sendTicketEmail({
   to,
   ticketCode,
   qrToken,
   cancelToken,
   name,
-}: SendTicketEmailParams) {
-  // Generar QR como imagen
-  const qrBuffer = await generateQRBuffer(qrToken)
+}: TicketEmailParams) {
+  // Generar QR como base64 Data URL (más fiable que CID en emails)
+  const qrDataURL = await generateQRDataURL(qrToken)
 
-  const greeting = name ? `¡Hola ${name}!` : '¡Hola!'
   const confirmationUrl = `${appUrl}/confirmacion/${ticketCode}`
   const cancelUrl = `${appUrl}/cancelar/${cancelToken}`
 
-  const html = `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="utf-8">
-    <style>
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-      .container { max-width: 500px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-      .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; }
-      .header h1 { margin: 0; font-size: 28px; }
-      .header p { margin: 8px 0 0; opacity: 0.9; font-size: 16px; }
-      .body { padding: 30px; }
-      .ticket-code { background: #f8f9fa; border: 2px dashed #667eea; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
-      .ticket-code .code { font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 4px; }
-      .qr-container { text-align: center; margin: 20px 0; }
-      .qr-container img { border-radius: 8px; }
-      .info-box { background: #f0f4ff; border-radius: 8px; padding: 16px; margin: 16px 0; }
-      .info-box h3 { margin: 0 0 8px; color: #333; font-size: 14px; }
-      .info-box p { margin: 4px 0; color: #555; font-size: 14px; }
-      .drink-badge { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 8px; padding: 12px; text-align: center; font-weight: bold; margin: 16px 0; }
-      .rules { background: #fff8e1; border-radius: 8px; padding: 16px; margin: 16px 0; }
-      .rules ul { padding-left: 20px; margin: 8px 0; }
-      .rules li { color: #555; font-size: 13px; margin: 6px 0; }
-      .disclaimer { font-style: italic; color: #888; font-size: 12px; text-align: center; margin: 16px 0; }
-      .footer { text-align: center; padding: 20px; border-top: 1px solid #eee; }
-      .btn { display: inline-block; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; }
-      .btn-primary { background: #667eea; color: white !important; }
-      .btn-cancel { color: #999 !important; font-size: 12px; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <h1>🔄 ${EVENT.name}</h1>
-        <p>${EVENT.tagline}</p>
-      </div>
-      
-      <div class="body">
-        <p>${greeting}</p>
-        <p>Tu entrada para la <strong>${EVENT.name}</strong> está confirmada. ¡Te esperamos!</p>
-        
-        <div class="ticket-code">
-          <small>Tu código de entrada</small>
-          <div class="code">${ticketCode}</div>
-        </div>
-
-        <div class="qr-container">
-          <p><strong>Tu QR de acceso:</strong></p>
-          <img src="cid:qrcode" alt="QR Code" width="200" height="200" />
-          <p style="font-size: 12px; color: #888;">Muestra este QR en la entrada</p>
-        </div>
-
-        <div class="drink-badge">
-          ${EVENT.includes}
-        </div>
-
-        <div class="info-box">
-          <h3>📅 Cuándo</h3>
-          <p>${EVENT.date}</p>
-          <p>${EVENT.time}</p>
-        </div>
-
-        <div class="info-box">
-          <h3>📍 Dónde</h3>
-          <p><strong>${EVENT.location}</strong></p>
-          <p>${EVENT.address}</p>
-        </div>
-
-        <div class="rules">
-          <h3>📋 Normas</h3>
-          <ul>
-            ${EVENT.rules.map((r) => `<li>${r}</li>`).join('')}
-          </ul>
-        </div>
-
-        <p class="disclaimer">${EVENT.disclaimer}</p>
-
-        <div style="text-align: center; margin: 24px 0;">
-          <a href="${confirmationUrl}" class="btn btn-primary">Ver mi entrada</a>
-        </div>
-      </div>
-
-      <div class="footer">
-        <p style="font-size: 12px; color: #888;">
-          ¿No puedes asistir? 
-          <a href="${cancelUrl}" class="btn-cancel">Cancelar mi entrada</a>
-          y dejarás tu plaza a otra persona.
-        </p>
-      </div>
-    </div>
-  </body>
-  </html>`
-
-  const { data, error } = await resend.emails.send({
-    from: 'Swap Party <onboarding@resend.dev>', // Cambiar cuando tengas dominio propio
-    to,
-    subject: `🎟️ Tu entrada para ${EVENT.name} — ${ticketCode}`,
-    html,
-    attachments: [
-      {
-        filename: 'qrcode.png',
-        content: qrBuffer,
-        contentType: 'image/png',
-        // @ts-ignore - Resend soporta content_id para CID
-        content_id: 'qrcode',
-      },
-    ],
+  const html = buildTicketEmailHTML({
+    name,
+    ticketCode,
+    qrDataURL,
+    confirmationUrl,
+    cancelUrl,
   })
 
-  if (error) {
-    console.error('Error enviando email:', error)
-    throw new Error(`Error enviando email: ${error.message}`)
+  const text = buildTicketEmailText({
+    name,
+    ticketCode,
+    confirmationUrl,
+    cancelUrl,
+  })
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to,
+      subject: `Tu entrada para ${EVENT.name} - ${ticketCode}`,
+      html,
+      text, // ← Versión texto plano (anti-spam)
+      headers: {
+        'X-Entity-Ref-ID': ticketCode, // Evita que Gmail agrupe como hilo
+      },
+    })
+
+    if (error) {
+      console.error(`❌ Error enviando ticket email a ${to}:`, JSON.stringify(error))
+      throw new Error(error.message)
+    }
+
+    console.log(`✅ Ticket email enviado a ${to} (${ticketCode}):`, data?.id)
+    return data
+  } catch (err: any) {
+    console.error(`❌ Exception enviando ticket email a ${to}:`, err.message)
+    throw err
+  }
+}
+
+// ─────────────────────────────────────────────
+// ENVIAR: Email de lista de espera
+// ─────────────────────────────────────────────
+export async function sendWaitlistEmail({ to, position, name }: WaitlistEmailParams) {
+  const html = buildWaitlistEmailHTML({ name, position })
+  const text = buildWaitlistEmailText({ name, position })
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to,
+      subject: `Lista de espera - ${EVENT.name}`,
+      html,
+      text,
+    })
+
+    if (error) {
+      console.error(`❌ Error enviando waitlist email a ${to}:`, JSON.stringify(error))
+      throw new Error(error.message)
+    }
+
+    console.log(`✅ Waitlist email enviado a ${to} (posición #${position}):`, data?.id)
+    return data
+  } catch (err: any) {
+    console.error(`❌ Exception enviando waitlist email:`, err.message)
+    throw err
+  }
+}
+
+// ─────────────────────────────────────────────
+// ENVIAR: Email promovido de waitlist → ticket
+// ─────────────────────────────────────────────
+export async function sendPromotedEmail({
+  to,
+  ticketCode,
+  qrToken,
+  cancelToken,
+  name,
+}: TicketEmailParams) {
+  const qrDataURL = await generateQRDataURL(qrToken)
+  const confirmationUrl = `${appUrl}/confirmacion/${ticketCode}`
+  const cancelUrl = `${appUrl}/cancelar/${cancelToken}`
+
+  const html = buildPromotedEmailHTML({
+    name,
+    ticketCode,
+    qrDataURL,
+    confirmationUrl,
+    cancelUrl,
+  })
+
+  const text = buildPromotedEmailText({
+    name,
+    ticketCode,
+    confirmationUrl,
+    cancelUrl,
+  })
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to,
+      subject: `Plaza disponible - Tu entrada para ${EVENT.name}`,
+      html,
+      text,
+      headers: {
+        'X-Entity-Ref-ID': ticketCode,
+      },
+    })
+
+    if (error) {
+      console.error(`❌ Error enviando promoted email a ${to}:`, JSON.stringify(error))
+      throw new Error(error.message)
+    }
+
+    console.log(`✅ Promoted email enviado a ${to}:`, data?.id)
+    return data
+  } catch (err: any) {
+    console.error(`❌ Exception enviando promoted email:`, err.message)
+    throw err
+  }
+}
+
+// ─────────────────────────────────────────────
+// ENVIAR: Notificación al organizador
+// ─────────────────────────────────────────────
+export async function sendOrganizerNotification({
+  attendeeEmail,
+  attendeeName,
+  ticketCode,
+  ticketNumber,
+  totalTickets,
+}: OrganizerNotifyParams) {
+  if (organizerEmails.length === 0) {
+    console.warn('⚠️ No hay ORGANIZER_EMAILS configurados')
+    return
   }
 
-  return data
-}
-
-// Email para la lista de espera
-export async function sendWaitlistEmail({
-  to,
-  position,
-  name,
-}: {
-  to: string
-  position: number
-  name?: string
-}) {
-  const greeting = name ? `Hola ${name}` : 'Hola'
-
-  const html = `
-  <!DOCTYPE html>
-  <html>
-  <head><meta charset="utf-8"></head>
-  <body style="font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px;">
-    <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-      <div style="background: linear-gradient(135deg, #ffa751 0%, #ffe259 100%); padding: 30px; text-align: center;">
-        <h1 style="color: white; margin: 0;">⏳ Lista de Espera</h1>
-        <p style="color: white; opacity: 0.9;">${EVENT.name}</p>
-      </div>
-      <div style="padding: 30px;">
-        <p>${greeting},</p>
-        <p>Las 20 entradas para la <strong>${EVENT.name}</strong> se han agotado, 
-           pero estás en la <strong>lista de espera</strong>.</p>
-        
-        <div style="background: #fff3cd; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-          <small>Tu posición</small>
-          <div style="font-size: 48px; font-weight: bold; color: #856404;">#${position}</div>
-        </div>
-        
-        <p>Si alguien cancela su entrada, recibirás automáticamente un email 
-           con tu ticket y QR de acceso.</p>
-        <p style="color: #888; font-size: 13px;">¡Cruza los dedos! 🤞</p>
-      </div>
-    </div>
-  </body>
-  </html>`
-
-  await resend.emails.send({
-    from: 'Swap Party <onboarding@resend.dev>',
-    to,
-    subject: `⏳ Lista de espera — ${EVENT.name}`,
-    html,
+  const html = buildOrganizerEmailHTML({
+    attendeeEmail,
+    attendeeName,
+    ticketCode,
+    ticketNumber,
+    totalTickets,
   })
-}
 
-// Email cuando alguien de la waitlist es promovido
-export async function sendPromotionEmail(params: SendTicketEmailParams) {
-  // Reutilizamos el email de ticket pero con un mensaje extra
-  return sendTicketEmail(params)
+  const text = buildOrganizerEmailText({
+    attendeeEmail,
+    attendeeName,
+    ticketCode,
+    ticketNumber,
+    totalTickets,
+  })
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: emailFrom,
+      to: organizerEmails,
+      subject: `Nuevo registro #${ticketNumber}/${totalTickets} - ${EVENT.name}`,
+      html,
+      text,
+    })
+
+    if (error) {
+      console.error('❌ Error enviando notificación al organizador:', JSON.stringify(error))
+      // No lanzamos error — no queremos bloquear el registro del usuario
+      return
+    }
+
+    console.log('✅ Notificación organizador enviada:', data?.id)
+    return data
+  } catch (err: any) {
+    console.error('❌ Exception notificación organizador:', err.message)
+    // Silencioso — la notificación al organizador no es crítica
+  }
 }

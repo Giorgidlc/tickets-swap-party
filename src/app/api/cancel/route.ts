@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { generateTokens } from '@/lib/tickets'
-import { sendTicketEmail } from '@/lib/email'
+import { sendPromotedEmail, sendOrganizerNotification } from '@/lib/email'
+import { EVENT } from '@/lib/constants'
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,12 +16,9 @@ export async function POST(req: NextRequest) {
 
     const payload = await getPayload({ config: configPromise })
 
-    // ── Buscar ticket ──
     const tickets = await payload.find({
       collection: 'tickets',
-      where: {
-        cancelToken: { equals: cancelToken },
-      },
+      where: { cancelToken: { equals: cancelToken } },
     })
 
     if (tickets.totalDocs === 0) {
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest) {
     const ticket = tickets.docs[0]
 
     if (ticket.status === 'cancelled') {
-      return NextResponse.json({ error: 'Esta entrada ya fue cancelada' }, { status: 400 })
+      return NextResponse.json({ error: 'Ya cancelada' }, { status: 400 })
     }
 
     if (ticket.status === 'attended') {
@@ -40,7 +38,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Cancelar ticket ──
+    // ── Cancelar ──
     await payload.update({
       collection: 'tickets',
       id: ticket.id,
@@ -50,27 +48,31 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // ── Promover primera persona de la waitlist ──
+    // ── Promover primera persona de waitlist ──
     const waitlist = await payload.find({
       collection: 'waitlist',
-      where: {
-        status: { equals: 'waiting' },
-      },
+      where: { status: { equals: 'waiting' } },
       sort: 'position',
       limit: 1,
     })
 
     if (waitlist.totalDocs > 0) {
-      const nextInLine = waitlist.docs[0]
+      const next = waitlist.docs[0]
       const tokens = generateTokens()
 
-      // Crear ticket para la persona promovida
+      // Contar tickets activos para saber el número
+      const activeCount = await payload.find({
+        collection: 'tickets',
+        where: { status: { not_equals: 'cancelled' } },
+        limit: 0,
+      })
+
       try {
         await payload.create({
           collection: 'tickets',
           data: {
-            email: nextInLine.email,
-            name: nextInLine.name || undefined,
+            email: next.email,
+            name: next.name || undefined,
             authProvider: 'email',
             ticketCode: tokens.ticketCode,
             qrToken: tokens.qrToken,
@@ -80,23 +82,31 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        // Actualizar waitlist
         await payload.update({
           collection: 'waitlist',
-          id: nextInLine.id,
+          id: next.id,
           data: { status: 'promoted' },
         })
 
-        // Enviar email al promovido
-        await sendTicketEmail({
-          to: nextInLine.email,
-          ticketCode: tokens.ticketCode,
-          qrToken: tokens.qrToken,
-          cancelToken: tokens.cancelToken,
-          name: nextInLine.name || undefined,
-        })
-      } catch (promoteError) {
-        console.error('Error promoviendo de waitlist:', promoteError)
+        // Emails: al promovido + al organizador
+        Promise.allSettled([
+          sendPromotedEmail({
+            to: next.email,
+            ticketCode: tokens.ticketCode,
+            qrToken: tokens.qrToken,
+            cancelToken: tokens.cancelToken,
+            name: next.name || undefined,
+          }),
+          sendOrganizerNotification({
+            attendeeEmail: next.email,
+            attendeeName: next.name || undefined,
+            ticketCode: tokens.ticketCode,
+            ticketNumber: activeCount.totalDocs + 1,
+            totalTickets: EVENT.maxTickets,
+          }),
+        ]).catch(console.error)
+      } catch (err) {
+        console.error('Error promoviendo de waitlist:', err)
       }
     }
 

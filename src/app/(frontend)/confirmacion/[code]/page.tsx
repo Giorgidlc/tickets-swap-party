@@ -31,7 +31,7 @@ export default async function ConfirmacionPage({ params }: Props) {
     <main className="page-container">
       <div className="ticket-card">
         <div className="ticket-header">
-          <h1>🔄 {EVENT.name}</h1>
+          <h1>{EVENT.name}</h1>
           <span className="status-badge confirmed">✅ Confirmada</span>
         </div>
 
@@ -55,21 +55,21 @@ export default async function ConfirmacionPage({ params }: Props) {
           <div className="ticket-details">
             <div className="detail">
               <span className="label">📅 Fecha</span>
-              <span>{EVENT.date}</span>
+              <p>{EVENT.date}</p>
             </div>
             <div className="detail">
               <span className="label">🕐 Hora</span>
-              <span>{EVENT.time}</span>
+              <p>{EVENT.time}</p>
             </div>
             <div className="detail">
               <span className="label">📍 Lugar</span>
-              <span>
+              <p>
                 {EVENT.location} — {EVENT.address}
-              </span>
+              </p>
             </div>
             <div className="detail">
               <span className="label">📧 Email</span>
-              <span>{ticket.email}</span>
+              <p>{ticket.email}</p>
             </div>
           </div>
         </div>

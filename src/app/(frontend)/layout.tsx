@@ -13,6 +13,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="es">
+      <head>
+        <style>
+          @import
+          url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+        </style>
+      </head>
       <body>
         <SessionProvider>{children}</SessionProvider>
       </body>

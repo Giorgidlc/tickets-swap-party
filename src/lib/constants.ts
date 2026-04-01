@@ -1,6 +1,6 @@
 export const EVENT = {
   name: 'Swap Party',
-  tagline: 'Intercambio de ropa',
+  tagline: 'Disfruta de la moda circular: trae, encuentra y comparte tu estilo.',
   date: 'Sábado 18 de Abril de 2026',
   time: '12:00 a 15:00',
   location: 'Bar St. Andrews',

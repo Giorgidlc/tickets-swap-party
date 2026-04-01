@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { generateTokens } from '@/lib/tickets'
-import { sendTicketEmail, sendWaitlistEmail } from '@/lib/email'
+import { sendTicketEmail, sendWaitlistEmail, sendOrganizerNotification } from '@/lib/email'
 import { EVENT } from '@/lib/constants'
 
 export async function POST(req: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
     const payload = await getPayload({ config: configPromise })
 
-    // ── Verificar si ya está registrado ──
+    // ── Ya registrado? ──
     const existing = await payload.find({
       collection: 'tickets',
       where: {
@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Verificar si ya está en waitlist ──
-    const existingWaitlist = await payload.find({
+    // ── Ya en waitlist? ──
+    const existingWL = await payload.find({
       collection: 'waitlist',
       where: {
         email: { equals: normalizedEmail },
@@ -46,12 +46,12 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    if (existingWaitlist.totalDocs > 0) {
+    if (existingWL.totalDocs > 0) {
       return NextResponse.json(
         {
           error: 'already_waitlisted',
           message: 'Ya estás en la lista de espera',
-          position: existingWaitlist.docs[0].position,
+          position: existingWL.docs[0].position,
         },
         { status: 409 },
       )
@@ -60,20 +60,17 @@ export async function POST(req: NextRequest) {
     // ── Contar tickets activos ──
     const activeTickets = await payload.find({
       collection: 'tickets',
-      where: {
-        status: { not_equals: 'cancelled' },
-      },
+      where: { status: { not_equals: 'cancelled' } },
       limit: 0,
     })
 
-    // ── ¿Hay plazas disponibles? ──
-    if (activeTickets.totalDocs >= EVENT.maxTickets) {
-      // LISTA DE ESPERA
+    const currentCount = activeTickets.totalDocs
+
+    // ── SOLD OUT → WAITLIST ──
+    if (currentCount >= EVENT.maxTickets) {
       const waitlistCount = await payload.find({
         collection: 'waitlist',
-        where: {
-          status: { in: ['waiting', 'notified'] },
-        },
+        where: { status: { in: ['waiting', 'notified'] } },
         limit: 0,
       })
 
@@ -89,12 +86,10 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Enviar email de waitlist
-      await sendWaitlistEmail({
-        to: normalizedEmail,
-        position,
-        name,
-      })
+      // Email asíncrono — no bloquear la respuesta
+      sendWaitlistEmail({ to: normalizedEmail, position, name }).catch((err) =>
+        console.error('Error email waitlist:', err),
+      )
 
       return NextResponse.json({
         success: true,
@@ -106,16 +101,7 @@ export async function POST(req: NextRequest) {
 
     // ── CREAR TICKET ──
     const tokens = generateTokens()
-
-    // Verificar que el ticketCode no exista (colisión muy improbable)
-    let finalTicketCode = tokens.ticketCode
-    const codeExists = await payload.find({
-      collection: 'tickets',
-      where: { ticketCode: { equals: finalTicketCode } },
-    })
-    if (codeExists.totalDocs > 0) {
-      finalTicketCode = generateTokens().ticketCode // Regenerar
-    }
+    const ticketNumber = currentCount + 1
 
     const ticket = await payload.create({
       collection: 'tickets',
@@ -123,7 +109,7 @@ export async function POST(req: NextRequest) {
         email: normalizedEmail,
         name: name || undefined,
         authProvider: provider,
-        ticketCode: finalTicketCode,
+        ticketCode: tokens.ticketCode,
         qrToken: tokens.qrToken,
         cancelToken: tokens.cancelToken,
         status: 'confirmed',
@@ -131,31 +117,45 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // ── Enviar email con QR ──
-    try {
-      await sendTicketEmail({
+    // ── Enviar emails (no bloquear respuesta) ──
+    const emailPromises = [
+      // 1) Email al asistente
+      sendTicketEmail({
         to: normalizedEmail,
-        ticketCode: finalTicketCode,
+        ticketCode: tokens.ticketCode,
         qrToken: tokens.qrToken,
         cancelToken: tokens.cancelToken,
         name,
+      }),
+      // 2) Email al organizador
+      sendOrganizerNotification({
+        attendeeEmail: normalizedEmail,
+        attendeeName: name,
+        ticketCode: tokens.ticketCode,
+        ticketNumber,
+        totalTickets: EVENT.maxTickets,
+      }),
+    ]
+
+    // Ejecutar en paralelo sin bloquear
+    Promise.allSettled(emailPromises).then((results) => {
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          console.error(`❌ Error en email ${i}:`, result.reason)
+        }
       })
-    } catch (emailError) {
-      console.error('Error enviando email (ticket creado):', emailError)
-      // El ticket se creó, el email se puede reenviar después
-    }
+    })
 
     return NextResponse.json({
       success: true,
       type: 'ticket',
-      ticketCode: finalTicketCode,
+      ticketCode: tokens.ticketCode,
       message: '¡Entrada registrada! Revisa tu email.',
-      remaining: EVENT.maxTickets - (activeTickets.totalDocs + 1),
+      remaining: EVENT.maxTickets - ticketNumber,
     })
   } catch (error: any) {
     console.error('Error en registro:', error)
 
-    // Error de unique constraint (doble registro concurrente)
     if (error?.code === '23505') {
       return NextResponse.json(
         { error: 'Este email ya tiene una entrada registrada' },
