@@ -1,10 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn, useSession } from 'next-auth/react'
 
 export default function RegistrationForm() {
-  const { data: session } = useSession()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -17,13 +15,6 @@ export default function RegistrationForm() {
       .then(setAvailability)
       .catch(console.error)
   }, [])
-
-  // Si el usuario se autenticó con OAuth, pre-llenar email
-  useEffect(() => {
-    if (session?.user?.email) {
-      setEmail(session.user.email)
-    }
-  }, [session])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,8 +29,7 @@ export default function RegistrationForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          name: session?.user?.name || undefined,
-          provider: (session?.user as any)?.provider || 'email',
+          provider: 'email', // Definimos estáticamente que el registro es por email
         }),
       })
 

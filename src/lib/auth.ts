@@ -1,17 +1,18 @@
 import NextAuth from 'next-auth'
-import Google from 'next-auth/providers/google'
-import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
+import Credentials from 'next-auth/providers/credentials'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    MicrosoftEntraID({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID || 'common',
+    Credentials({
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        // Aquí puedes enlazar el login de Payload si lo necesitas en el futuro
+        // Por ahora, NextAuth requiere al menos un proveedor configurado
+        return null
+      },
     }),
   ],
 
@@ -19,7 +20,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, profile, account }) {
       if (account && profile) {
         token.provider = account.provider
-        token.name = profile.name || profile.displayName || ''
+        token.name = profile.name || (profile as any).displayName || ''
       }
       return token
     },
