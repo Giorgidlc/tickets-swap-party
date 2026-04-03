@@ -135,6 +135,7 @@ export default function RegistrationForm() {
             disabled={loading}
           />
         </div>
+        <br />
         <button type="submit" className="btn-primary" disabled={loading || !email}>
           {loading ? (
             <span className="spinner">Registrando...</span>

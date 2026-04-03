@@ -184,9 +184,7 @@ export default function QRScanner() {
     return (
       <div className="scanner-container">
         <h2>🔐 Acceso Validador</h2>
-        <p style={{ color: '#a0aec0', marginBottom: '20px' }}>
-          Introduce el PIN de administrador
-        </p>
+        <p style={{ color: '#a0aec0', marginBottom: '20px' }}>Introduce el PIN de administrador</p>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -244,19 +242,11 @@ export default function QRScanner() {
       {result && (
         <div
           className={`scan-result ${
-            result.valid
-              ? 'valid'
-              : result.status === 'already_attended'
-                ? 'warning'
-                : 'invalid'
+            result.valid ? 'valid' : result.status === 'already_attended' ? 'warning' : 'invalid'
           }`}
         >
           <div className="result-icon" style={{ fontSize: '48px', marginBottom: '12px' }}>
-            {result.valid
-              ? '✅'
-              : result.status === 'already_attended'
-                ? '⚠️'
-                : '❌'}
+            {result.valid ? '✅' : result.status === 'already_attended' ? '⚠️' : '❌'}
           </div>
           <h3 style={{ margin: '0 0 16px' }}>{result.message}</h3>
 
@@ -271,17 +261,17 @@ export default function QRScanner() {
               }}
             >
               {result.ticketCode && (
-                <p style={{ margin: '4px 0' }}>
+                <p style={{ margin: '4px 0', color: '#123644' }}>
                   <strong>Código:</strong> {result.ticketCode}
                 </p>
               )}
               {result.email && (
-                <p style={{ margin: '4px 0' }}>
+                <p style={{ margin: '4px 0', color: '#123644' }}>
                   <strong>Email:</strong> {result.email}
                 </p>
               )}
               {result.name && (
-                <p style={{ margin: '4px 0' }}>
+                <p style={{ margin: '4px 0', color: '#123644' }}>
                   <strong>Nombre:</strong> {result.name}
                 </p>
               )}
@@ -306,12 +296,8 @@ export default function QRScanner() {
               )}
             </div>
           )}
-
-          <button
-            onClick={startScanner}
-            className="btn-primary"
-            style={{ marginTop: '20px' }}
-          >
+          <br />
+          <button onClick={startScanner} className="btn-primary" style={{ marginTop: '20px' }}>
             📷 Escanear siguiente
           </button>
         </div>
@@ -354,10 +340,7 @@ export default function QRScanner() {
           <p style={{ color: '#a0aec0', fontSize: '13px', marginBottom: '8px' }}>
             ¿Problemas con la cámara? Escribe el código:
           </p>
-          <form
-            onSubmit={handleManualValidation}
-            style={{ display: 'flex', gap: '8px' }}
-          >
+          <form onSubmit={handleManualValidation} style={{ display: 'flex', gap: '8px' }}>
             <input
               type="text"
               value={manualToken}
@@ -375,6 +358,7 @@ export default function QRScanner() {
                 textTransform: 'uppercase',
               }}
             />
+            <br />
             <button
               type="submit"
               className="btn-primary"
@@ -388,7 +372,7 @@ export default function QRScanner() {
       )}
 
       {/* ── DEBUG ── */}
-      {debugInfo && (
+      {/* {debugInfo && (
         <div
           style={{
             marginTop: '16px',
@@ -411,7 +395,7 @@ export default function QRScanner() {
             {debugInfo}
           </pre>
         </div>
-      )}
+      )} */}
     </div>
   )
 }
