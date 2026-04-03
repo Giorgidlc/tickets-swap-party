@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 
 interface ScanResult {
@@ -22,56 +22,66 @@ export default function QRScanner() {
   const [loading, setLoading] = useState(false)
   const [debugInfo, setDebugInfo] = useState<string>('')
   const [manualToken, setManualToken] = useState('')
+
   const scannerRef = useRef<Html5QrcodeScanner | null>(null)
   const isProcessingRef = useRef(false)
+  const pinRef = useRef('') // ← Ref para mantener el PIN actualizado
+
+  // Mantener pinRef sincronizado
+  useEffect(() => {
+    pinRef.current = pin
+  }, [pin])
 
   // ── Validar token contra la API ──
-  const validateToken = useCallback(
-    async (token: string) => {
-      // Evitar llamadas dobles
-      if (isProcessingRef.current) return
-      isProcessingRef.current = true
+  const validateToken = async (token: string) => {
+    if (isProcessingRef.current) return
+    isProcessingRef.current = true
 
-      setLoading(true)
-      setDebugInfo(`Token leído: "${token}" (${token.length} chars)`)
+    setLoading(true)
+    setScanning(false)
 
-      try {
-        console.log('📡 Enviando a /api/validate:', { qrToken: token, pin: '****' })
+    const currentPin = pinRef.current // ← Usar la ref, no el estado
 
-        const res = await fetch('/api/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qrToken: token.trim(),
-            pin,
-          }),
-        })
+    setDebugInfo(`Token: "${token.substring(0, 12)}..."\nPIN: ${currentPin ? '****' : '❌ VACÍO'}`)
 
-        const data = await res.json()
-        console.log('📡 Respuesta /api/validate:', data)
+    console.log('📡 Validando:', {
+      token: token.substring(0, 20),
+      pinLength: currentPin.length,
+    })
 
-        setDebugInfo(
-          `Token: "${token.substring(0, 8)}..."\nStatus HTTP: ${res.status}\nRespuesta: ${JSON.stringify(data, null, 2)}`,
-        )
-        setResult(data)
-      } catch (err: any) {
-        console.error('❌ Error fetch:', err)
-        setDebugInfo(`Token: "${token}"\nError: ${err.message}`)
-        setResult({
-          valid: false,
-          status: 'error',
-          message: `❌ Error de conexión: ${err.message}`,
-        })
-      } finally {
-        setLoading(false)
-        isProcessingRef.current = false
-      }
-    },
-    [pin],
-  )
+    try {
+      const res = await fetch('/api/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qrToken: token.trim(),
+          pin: currentPin, // ← Usar la ref
+        }),
+      })
+
+      const data = await res.json()
+      console.log('📡 Respuesta:', data)
+
+      setDebugInfo(
+        `Token: "${token.substring(0, 12)}..."\nHTTP: ${res.status}\n${JSON.stringify(data, null, 2)}`,
+      )
+      setResult(data)
+    } catch (err: any) {
+      console.error('❌ Error:', err)
+      setDebugInfo(`Error: ${err.message}`)
+      setResult({
+        valid: false,
+        status: 'error',
+        message: `❌ Error de conexión: ${err.message}`,
+      })
+    } finally {
+      setLoading(false)
+      isProcessingRef.current = false
+    }
+  }
 
   // ── Iniciar escáner ──
-  const startScanner = useCallback(() => {
+  const startScanner = () => {
     setResult(null)
     setDebugInfo('')
     setScanning(true)
@@ -82,17 +92,14 @@ export default function QRScanner() {
       try {
         scannerRef.current.clear()
       } catch (e) {
-        console.warn('Error limpiando scanner:', e)
+        // Ignorar
       }
       scannerRef.current = null
     }
 
     setTimeout(() => {
       const container = document.getElementById('qr-reader')
-      if (!container) {
-        console.error('Container qr-reader no encontrado')
-        return
-      }
+      if (!container) return
 
       try {
         const scanner = new Html5QrcodeScanner(
@@ -103,64 +110,61 @@ export default function QRScanner() {
             aspectRatio: 1,
             rememberLastUsedCamera: true,
           },
-          false, // verbose = false
+          false,
         )
 
         scanner.render(
           async (decodedText) => {
-            // Evitar procesamiento doble
             if (isProcessingRef.current) return
 
-            console.log('🔍 QR decodificado:', decodedText)
+            console.log('🔍 QR leído:', decodedText)
 
-            // Parar el scanner de forma segura
+            // Limpiar scanner
             try {
-              if (scannerRef.current) {
-                await scannerRef.current.clear()
-                scannerRef.current = null
-              }
+              scanner.clear()
             } catch (e) {
-              console.warn('Error parando scanner:', e)
+              // Ignorar
             }
+            scannerRef.current = null
 
-            setScanning(false)
-
-            // Validar el token
+            // Validar
             await validateToken(decodedText)
           },
-          (_errorMessage) => {
-            // Normal mientras busca QR — ignorar
+          () => {
+            // Errores normales de escaneo — ignorar
           },
         )
 
         scannerRef.current = scanner
       } catch (err) {
-        console.error('Error iniciando scanner:', err)
-        setDebugInfo(`Error iniciando cámara: ${err}`)
+        console.error('Error cámara:', err)
+        setDebugInfo(`Error cámara: ${err}`)
+        setScanning(false)
       }
     }, 300)
-  }, [validateToken])
+  }
 
-  // ── Validación manual (fallback) ──
+  // ── Validación manual ──
   const handleManualValidation = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!manualToken.trim()) return
-    setScanning(false)
 
-    // Limpiar scanner si está activo
+    // Limpiar scanner si existe
     if (scannerRef.current) {
       try {
-        await scannerRef.current.clear()
-        scannerRef.current = null
+        scannerRef.current.clear()
       } catch (e) {
-        console.warn('Error limpiando scanner:', e)
+        // Ignorar
       }
+      scannerRef.current = null
     }
 
+    setScanning(false)
     await validateToken(manualToken.trim())
+    setManualToken('')
   }
 
-  // ── Limpiar al desmontar ──
+  // ── Cleanup ──
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
@@ -187,6 +191,7 @@ export default function QRScanner() {
           onSubmit={(e) => {
             e.preventDefault()
             if (pin.length >= 4) {
+              pinRef.current = pin // ← Asegurar que la ref está actualizada
               setAuthenticated(true)
             }
           }}
@@ -194,17 +199,32 @@ export default function QRScanner() {
           <input
             type="password"
             value={pin}
-            onChange={(e) => setPin(e.target.value)}
+            onChange={(e) => {
+              setPin(e.target.value)
+              pinRef.current = e.target.value // ← Actualizar ref también
+            }}
             placeholder="PIN"
             maxLength={8}
             className="pin-input"
             autoFocus
+            style={{
+              width: '120px',
+              padding: '16px',
+              textAlign: 'center',
+              fontSize: '1.5rem',
+              letterSpacing: '8px',
+              borderRadius: '10px',
+              border: '2px solid #4a5568',
+              background: '#2d3748',
+              color: 'white',
+            }}
           />
+          <br />
           <button
             type="submit"
             className="btn-primary"
             disabled={pin.length < 4}
-            style={{ marginTop: '12px', maxWidth: '200px' }}
+            style={{ marginTop: '16px', maxWidth: '200px' }}
           >
             Entrar
           </button>
@@ -214,13 +234,13 @@ export default function QRScanner() {
   }
 
   // ═══════════════════════════════════
-  // PANTALLA PRINCIPAL DEL VALIDADOR
+  // PANTALLA PRINCIPAL
   // ═══════════════════════════════════
   return (
     <div className="scanner-container">
       <h2>📷 Validador de Entradas</h2>
 
-      {/* ── RESULTADO DEL ESCANEO ── */}
+      {/* ── RESULTADO ── */}
       {result && (
         <div
           className={`scan-result ${
@@ -231,49 +251,66 @@ export default function QRScanner() {
                 : 'invalid'
           }`}
         >
-          <div className="result-icon">
+          <div className="result-icon" style={{ fontSize: '48px', marginBottom: '12px' }}>
             {result.valid
               ? '✅'
               : result.status === 'already_attended'
                 ? '⚠️'
                 : '❌'}
           </div>
-          <h3>{result.message}</h3>
+          <h3 style={{ margin: '0 0 16px' }}>{result.message}</h3>
 
-          {/* Detalles del ticket */}
           {(result.email || result.ticketCode) && (
-            <div className="result-details">
+            <div
+              className="result-details"
+              style={{
+                background: 'rgba(0,0,0,0.1)',
+                padding: '16px',
+                borderRadius: '8px',
+                textAlign: 'left',
+              }}
+            >
               {result.ticketCode && (
-                <p>
+                <p style={{ margin: '4px 0' }}>
                   <strong>Código:</strong> {result.ticketCode}
                 </p>
               )}
               {result.email && (
-                <p>
+                <p style={{ margin: '4px 0' }}>
                   <strong>Email:</strong> {result.email}
                 </p>
               )}
               {result.name && (
-                <p>
+                <p style={{ margin: '4px 0' }}>
                   <strong>Nombre:</strong> {result.name}
                 </p>
               )}
               {result.drinkIncluded && (
-                <p className="drink-badge">🍹 Consumición incluida</p>
+                <p
+                  style={{
+                    margin: '12px 0 0',
+                    padding: '8px 16px',
+                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                  }}
+                >
+                  🍹 Consumición incluida
+                </p>
               )}
               {result.attendedAt && (
-                <p style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
+                <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#888' }}>
                   Usado: {new Date(result.attendedAt).toLocaleString('es-ES')}
                 </p>
               )}
             </div>
           )}
 
-          {/* Botón escanear siguiente */}
           <button
             onClick={startScanner}
             className="btn-primary"
-            style={{ marginTop: '16px' }}
+            style={{ marginTop: '20px' }}
           >
             📷 Escanear siguiente
           </button>
@@ -283,11 +320,12 @@ export default function QRScanner() {
       {/* ── LOADING ── */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#a0aec0' }}>
-          <div className="spinner">Validando entrada...</div>
+          <div style={{ fontSize: '24px', marginBottom: '12px' }}>⏳</div>
+          <p>Validando entrada...</p>
         </div>
       )}
 
-      {/* ── ESCÁNER QR ── */}
+      {/* ── ESCÁNER ── */}
       {!result && !loading && (
         <>
           {scanning ? (
@@ -296,7 +334,7 @@ export default function QRScanner() {
             <button
               onClick={startScanner}
               className="btn-primary"
-              style={{ marginTop: '16px', maxWidth: '300px' }}
+              style={{ marginTop: '20px', maxWidth: '300px' }}
             >
               📷 Abrir cámara
             </button>
@@ -304,7 +342,7 @@ export default function QRScanner() {
         </>
       )}
 
-      {/* ── VALIDACIÓN MANUAL (fallback) ── */}
+      {/* ── VALIDACIÓN MANUAL ── */}
       {!result && !loading && (
         <div
           style={{
@@ -313,14 +351,8 @@ export default function QRScanner() {
             borderTop: '1px solid #4a5568',
           }}
         >
-          <p
-            style={{
-              color: '#a0aec0',
-              fontSize: '13px',
-              marginBottom: '8px',
-            }}
-          >
-            ¿La cámara no funciona? Introduce el código del ticket:
+          <p style={{ color: '#a0aec0', fontSize: '13px', marginBottom: '8px' }}>
+            ¿Problemas con la cámara? Escribe el código:
           </p>
           <form
             onSubmit={handleManualValidation}
@@ -333,12 +365,12 @@ export default function QRScanner() {
               placeholder="SWAP-XXXX"
               style={{
                 flex: 1,
-                padding: '10px 14px',
+                padding: '12px 16px',
                 borderRadius: '8px',
                 border: '2px solid #4a5568',
                 background: '#2d3748',
                 color: 'white',
-                fontSize: '16px',
+                fontSize: '18px',
                 letterSpacing: '2px',
                 textTransform: 'uppercase',
               }}
@@ -347,15 +379,15 @@ export default function QRScanner() {
               type="submit"
               className="btn-primary"
               disabled={!manualToken.trim()}
-              style={{ width: 'auto', padding: '10px 20px' }}
+              style={{ width: 'auto', padding: '12px 24px' }}
             >
-              Validar
+              ✓
             </button>
           </form>
         </div>
       )}
 
-      {/* ── DEBUG INFO (solo visible en desarrollo o para diagnóstico) ── */}
+      {/* ── DEBUG ── */}
       {debugInfo && (
         <div
           style={{
@@ -366,9 +398,9 @@ export default function QRScanner() {
             border: '1px solid #4a5568',
           }}
         >
-          <p
+          <pre
             style={{
-              color: '#a0aec0',
+              color: '#68d391',
               fontSize: '11px',
               fontFamily: 'monospace',
               margin: 0,
@@ -376,8 +408,8 @@ export default function QRScanner() {
               wordBreak: 'break-all',
             }}
           >
-            🔍 {debugInfo}
-          </p>
+            {debugInfo}
+          </pre>
         </div>
       )}
     </div>
