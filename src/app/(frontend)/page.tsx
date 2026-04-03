@@ -3,7 +3,6 @@ import Image from 'next/image'
 import { getPayload } from 'payload'
 import RegistrationForm from '@/components/RegistrationForm'
 import { EVENT } from '@/lib/constants'
-import { fileURLToPath } from 'url'
 
 import config from '@/payload.config'
 import './styles.css'
