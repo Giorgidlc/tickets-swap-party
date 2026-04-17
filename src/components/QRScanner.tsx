@@ -307,7 +307,7 @@ export default function QRScanner() {
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#a0aec0' }}>
           <div style={{ fontSize: '24px', marginBottom: '12px' }}>⏳</div>
-          <p>Validando entrada...</p>
+          <p>Validando ticket...</p>
         </div>
       )}
 

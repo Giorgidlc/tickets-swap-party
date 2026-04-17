@@ -39,11 +39,11 @@ export default function CancelarPage({ params }: Props) {
       <div className="cancel-card">
         {status === 'confirm' && (
           <>
-            <h1>¿Cancelar tu entrada? 😢 </h1>
+            <h1>¿Cancelar tu ticket de consumisión gratuita? 😢 </h1>
             <p>Si cancelas, tu plaza quedará libre para otra persona de la lista de espera.</p>
             <div className="cancel-actions">
               <button onClick={handleCancel} className="btn-danger">
-                Sí, cancelar mi entrada
+                Sí, cancelar mi ticket de consumisión gratuita
               </button>
               <a href="/" className="btn-secondary">
                 No, quiero mantenerla
@@ -60,9 +60,12 @@ export default function CancelarPage({ params }: Props) {
 
         {status === 'done' && (
           <>
-            <h1>✅ Entrada cancelada</h1>
+            <h1>✅ Ticket cancelado</h1>
             <p>{message}</p>
-            <p>Si alguien estaba en lista de espera, ya habrá recibido su entrada. 💚</p>
+            <p>
+              Si alguien estaba en lista de espera, ya habrá recibido su ticket de consumisión
+              gratuita. 💚
+            </p>
           </>
         )}
 

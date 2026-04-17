@@ -66,7 +66,7 @@ export default async function HomePage() {
 
         {/* Formulario */}
         <div className="form-section">
-          <h2>🎟️ Consigue tu entrada gratuita 🎟️</h2>
+          <h2>🎟️ Consigue tu consumición gratuita 🎟️</h2>
           <RegistrationForm />
         </div>
       </div>

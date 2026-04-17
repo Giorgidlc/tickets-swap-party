@@ -4,7 +4,7 @@ export const Tickets: CollectionConfig = {
   slug: 'tickets',
   admin: {
     useAsTitle: 'email',
-    description: 'Entradas para Swap Party (máximo 20)',
+    description: 'Ticket de consumisión gratuita para Swap Party (máximo 20)',
     defaultColumns: ['ticketCode', 'email', 'status', 'createdAt'],
     listSearchableFields: ['email', 'ticketCode'],
   },

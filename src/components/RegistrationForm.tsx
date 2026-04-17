@@ -53,12 +53,12 @@ export default function RegistrationForm() {
   if (result?.error === 'already_registered') {
     return (
       <div className="result-card info">
-        <h3>🎟️ ¡Ya tienes entrada!</h3>
+        <h3>🎟️ ¡Ya tienes consumición!</h3>
         <p>
           Tu código: <strong>{result.ticketCode}</strong>
         </p>
         <a href={`/confirmacion/${result.ticketCode}`} className="btn-primary">
-          Ver mi entrada
+          Ver mi ticket
         </a>
       </div>
     )
@@ -68,12 +68,12 @@ export default function RegistrationForm() {
   if (result?.success && result.type === 'ticket') {
     return (
       <div className="result-card success">
-        <h3>🎉 ¡Entrada confirmada!</h3>
+        <h3>🎉 ¡Consumición confirmada!</h3>
         <p>
           Tu código: <strong>{result.ticketCode}</strong>
         </p>
         <p>Revisa tu email para ver tu QR de acceso.</p>
-        <p className="text-sm">Redirigiendo a tu entrada...</p>
+        <p className="text-sm">Redirigiendo a tu ticket...</p>
       </div>
     )
   }
@@ -109,11 +109,11 @@ export default function RegistrationForm() {
       {availability && (
         <div className={`availability ${availability.soldOut ? 'sold-out' : ''}`}>
           {availability.soldOut ? (
-            <span>🔴 Entradas agotadas — Puedes apuntarte a la lista de espera</span>
+            <span>🔴 Consumisiones agotadas — Puedes apuntarte a la lista de espera</span>
           ) : (
             <span>
-              🟢 <strong>{availability.available}</strong> de {availability.total} entradas
-              disponibles
+              🟢 <strong>{availability.available}</strong> de {availability.total} consumiciones
+              gratis disponibles
             </span>
           )}
         </div>
@@ -142,7 +142,7 @@ export default function RegistrationForm() {
           ) : availability?.soldOut ? (
             'Apuntarme a la lista de espera'
           ) : (
-            'Obtener mi entrada gratis'
+            'Obtener mi consumición gratuita'
           )}
         </button>
       </form>

@@ -1,7 +1,7 @@
 import QRScanner from '@/components/QRScanner'
 
 export const metadata = {
-  title: 'Validador de Entradas — Swap Party',
+  title: 'Validador de Tickets — Swap Party',
 }
 
 export default function ValidarPage() {

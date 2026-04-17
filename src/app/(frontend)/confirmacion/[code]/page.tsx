@@ -75,9 +75,9 @@ export default async function ConfirmacionPage({ params }: Props) {
         </div>
 
         <div className="ticket-footer">
-          <p>📧 También te hemos enviado esta entrada por email.</p>
+          <p>📧 También te hemos enviado este ticket por email.</p>
           <a href={`/cancelar/${ticket.cancelToken}`} className="cancel-link">
-            ¿No puedes asistir? Cancela tu entrada
+            ¿No puedes asistir? Cancela tu ticket
           </a>
         </div>
       </div>

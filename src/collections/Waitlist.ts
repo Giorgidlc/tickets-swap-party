@@ -4,7 +4,7 @@ export const Waitlist: CollectionConfig = {
   slug: 'waitlist',
   admin: {
     useAsTitle: 'email',
-    description: 'Lista de espera cuando se agotan las 20 entradas',
+    description: 'Lista de espera cuando se agotan las 20 consumiciones gratuitas',
     defaultColumns: ['position', 'email', 'status', 'createdAt'],
   },
   access: {
